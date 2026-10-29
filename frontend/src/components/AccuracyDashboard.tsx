@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -10,8 +10,6 @@ import {
   ComposedChart,
   Line,
   Area,
-  ScatterChart,
-  Scatter,
   Cell,
   ReferenceLine,
 } from 'recharts';
@@ -21,7 +19,6 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import { useAccuracy } from '../hooks/useWindData';
 import { formatMW, formatNumber, formatPercent } from '../utils/formatters';
-import type { AccuracyResponse } from '../types';
 
 interface AccuracyDashboardProps {
   dateFrom: string;
@@ -31,154 +28,239 @@ interface AccuracyDashboardProps {
 export default function AccuracyDashboard({ dateFrom, dateTo }: AccuracyDashboardProps) {
   const { data, isLoading, error, refetch } = useAccuracy(dateFrom, dateTo);
 
-  if (isLoading) return <LoadingSpinner message="Computing accuracy metrics..." />;
+  if (isLoading) return <LoadingSpinner message="Calculating high-precision error distributions and diurnal metrics..." />;
   if (error) return <ErrorMessage message={error.message} onRetry={() => refetch()} />;
   if (!data) return null;
 
+  const isOverForecasting = data.overall.mbe > 0;
+
   return (
     <div className="space-y-6">
-      {/* Overall Metrics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* 6-Card Executive Metrics Deck */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
         <MetricCard
           title="MAE"
           value={formatMW(data.overall.mae)}
           subtitle="Mean Absolute Error"
           icon={<Target className="w-4 h-4" />}
-          trend={data.overall.mae < 500 ? 'good' : data.overall.mae < 1000 ? 'warning' : 'bad'}
+          riskStatus="normal"
         />
         <MetricCard
           title="RMSE"
           value={formatMW(data.overall.rmse)}
           subtitle="Root Mean Square Error"
           icon={<Activity className="w-4 h-4" />}
-          trend={data.overall.rmse < 700 ? 'good' : data.overall.rmse < 1400 ? 'warning' : 'bad'}
+          riskStatus="normal"
         />
         <MetricCard
           title="MAPE"
           value={formatPercent(data.overall.mape)}
-          subtitle="Mean Abs % Error"
+          subtitle="Mean Abs % Deviation"
           icon={<BarChart3 className="w-4 h-4" />}
-          trend={data.overall.mape < 10 ? 'good' : data.overall.mape < 20 ? 'warning' : 'bad'}
+          riskStatus={data.overall.mape > 20 ? 'caution' : 'optimal'}
         />
         <MetricCard
           title="Bias (MBE)"
-          value={`${data.overall.mbe > 0 ? '+' : ''}${formatMW(data.overall.mbe)}`}
-          subtitle={data.overall.mbe > 0 ? 'Over-forecasting' : 'Under-forecasting'}
-          icon={data.overall.mbe > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-          trend={Math.abs(data.overall.mbe) < 200 ? 'good' : Math.abs(data.overall.mbe) < 500 ? 'warning' : 'bad'}
+          value={`${isOverForecasting ? '+' : ''}${formatMW(data.overall.mbe)}`}
+          subtitle={isOverForecasting ? 'Net Over-Forecasting' : 'Net Under-Forecasting'}
+          icon={isOverForecasting ? <TrendingUp className="w-4 h-4 text-amber-400" /> : <TrendingDown className="w-4 h-4 text-sky-400" />}
+          riskStatus={Math.abs(data.overall.mbe) > 2500 ? 'caution' : 'normal'}
         />
         <MetricCard
           title="Correlation"
           value={data.overall.correlation.toFixed(3)}
-          subtitle="Pearson R"
+          subtitle="Pearson Coefficient"
           icon={<Gauge className="w-4 h-4" />}
-          trend={data.overall.correlation > 0.95 ? 'good' : data.overall.correlation > 0.85 ? 'warning' : 'bad'}
+          riskStatus={data.overall.correlation > 0.90 ? 'optimal' : 'normal'}
         />
         <MetricCard
-          title="Observations"
+          title="Sample Size"
           value={formatNumber(data.overall.n_observations)}
-          subtitle="Matched periods"
-          trend="neutral"
+          subtitle="Half-hour intervals"
+          riskStatus="normal"
         />
       </div>
 
-      {/* Charts Row */}
+      {/* Analytics Visualizations Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Error Distribution */}
+        {/* Error Distribution Histogram */}
         <div className="card">
-          <h3 className="card-header">Error Distribution (Forecast − Actual)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.error_distribution} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              Error Distribution Histogram (F − A)
+            </h3>
+            <span className="badge-neutral">
+              25 Bins · Symmetric
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={290}>
+            <BarChart data={data.error_distribution} margin={{ top: 5, right: 15, bottom: 5, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.7} />
               <XAxis
                 dataKey="bin_start"
-                tick={{ fill: '#6b7280', fontSize: 10 }}
+                tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'monospace' }}
+                stroke="#334155"
+                tickLine={false}
                 tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`}
               />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
-                labelFormatter={(v) => `Error: ${formatMW(v)}`}
-                formatter={(v: number) => [`${v} periods`, 'Count']}
+              <YAxis 
+                tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'monospace' }} 
+                stroke="#334155"
+                tickLine={false}
               />
-              <ReferenceLine x={0} stroke="#ef4444" strokeDasharray="3 3" />
+              <Tooltip
+                contentStyle={{ 
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                  border: '1px solid rgba(51, 65, 85, 0.8)', 
+                  borderRadius: '10px', 
+                  fontSize: '12px',
+                  color: '#e2e8f0',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)'
+                }}
+                labelFormatter={(v) => `Error Horizon: ${formatMW(Number(v))}`}
+                formatter={(v: number) => [`${v} intervals`, 'Count']}
+              />
+              <ReferenceLine x={0} stroke="#475569" strokeDasharray="3 3" />
               <Bar dataKey="count" name="Frequency" radius={[2, 2, 0, 0]}>
                 {data.error_distribution.map((entry, index) => (
                   <Cell
                     key={index}
-                    fill={entry.bin_start >= 0 ? '#f59e0b' : '#06b6d4'}
-                    fillOpacity={0.7}
+                    fill={entry.bin_start >= 0 ? '#f59e0b' : '#38bdf8'}
+                    fillOpacity={0.65}
                   />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Positive = Over-forecast · Negative = Under-forecast
-          </p>
+          <div className="flex items-center justify-center gap-6 mt-3 text-[11px] text-slate-400 font-mono">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-sky-400/70" /> Negative: Deficit Under-forecast
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-amber-400/70" /> Positive: Surplus Over-forecast
+            </span>
+          </div>
         </div>
 
-        {/* Hourly Accuracy Pattern */}
+        {/* Diurnal Hourly Accuracy Pattern */}
         <div className="card">
-          <h3 className="card-header">Accuracy by Hour of Day</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={data.hourly} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              Diurnal Accuracy Profile (Hour 00:00 to 23:00)
+            </h3>
+            <span className="badge-neutral">
+              24-Hour Solar/Wind Cycle
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={290}>
+            <ComposedChart data={data.hourly} margin={{ top: 5, right: 15, bottom: 5, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.7} />
               <XAxis
                 dataKey="hour"
-                tick={{ fill: '#6b7280', fontSize: 10 }}
+                tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'monospace' }}
+                stroke="#334155"
+                tickLine={false}
                 tickFormatter={(h) => `${String(h).padStart(2, '0')}:00`}
               />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} />
+              <YAxis 
+                tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'monospace' }} 
+                stroke="#334155"
+                tickLine={false}
+              />
               <Tooltip
-                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
-                labelFormatter={(h) => `${String(h).padStart(2, '0')}:00`}
+                contentStyle={{ 
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                  border: '1px solid rgba(51, 65, 85, 0.8)', 
+                  borderRadius: '10px', 
+                  fontSize: '12px',
+                  color: '#e2e8f0'
+                }}
+                labelFormatter={(h) => `Settlement Hour: ${String(h).padStart(2, '0')}:00 UTC`}
                 formatter={(v: number, name: string) => [formatMW(v), name]}
               />
-              <Bar dataKey="mae" name="MAE" fill="#3391ff" fillOpacity={0.6} radius={[2, 2, 0, 0]} />
-              <Line type="monotone" dataKey="mbe" name="Bias (MBE)" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 3 }} />
-              <ReferenceLine y={0} stroke="#374151" />
+              <ReferenceLine y={0} stroke="#334155" />
+              <Bar dataKey="mae" name="Mean Absolute Error" fill="#0F7A3E" fillOpacity={0.5} radius={[2, 2, 0, 0]} />
+              <Line type="monotone" dataKey="mbe" name="Systemic Bias (MBE)" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', r: 2.5 }} />
             </ComposedChart>
           </ResponsiveContainer>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Blue bars: MAE · Red line: Bias direction
-          </p>
+          <div className="flex items-center justify-center gap-6 mt-3 text-[11px] text-slate-400 font-mono">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#0F7A3E]/60" /> Green Bars: MAE Magnitude
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-0.5 bg-amber-400" /> Amber Curve: Bias Shift Direction
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Daily Accuracy Trend */}
+      {/* Daily Accuracy Longitudinal Trend */}
       <div className="card">
-        <h3 className="card-header">Daily Forecast Accuracy Trend</h3>
-        <ResponsiveContainer width="100%" height={350}>
-          <ComposedChart data={data.daily} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+            Daily Longitudinal Forecast Accuracy Tracking · January 2026
+          </h3>
+          <div className="flex items-center gap-4 text-xs font-mono">
+            <span className="flex items-center gap-1.5 text-sky-400">
+              <span className="w-2.5 h-0.5 bg-sky-400" /> Daily Mean Actual
+            </span>
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <span className="w-2.5 h-0.5 bg-emerald-400" /> Daily Mean Forecast
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-400">
+              <span className="w-2.5 h-0.5 bg-amber-400" /> Daily MAPE (%)
+            </span>
+          </div>
+        </div>
+
+        <ResponsiveContainer width="100%" height={340}>
+          <ComposedChart data={data.daily} margin={{ top: 5, right: 15, bottom: 5, left: 10 }}>
+            <defs>
+              <linearGradient id="dailyActualGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.7} />
             <XAxis
               dataKey="date"
-              tick={{ fill: '#6b7280', fontSize: 10 }}
-              tickFormatter={(d) => d.slice(5)} // MM-DD
+              tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'monospace' }}
+              stroke="#334155"
+              tickLine={false}
+              tickFormatter={(d) => d.slice(5)}
             />
             <YAxis
               yAxisId="mw"
-              tick={{ fill: '#6b7280', fontSize: 10 }}
+              tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'monospace' }}
+              stroke="#334155"
+              tickLine={false}
               tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`}
             />
             <YAxis
               yAxisId="pct"
               orientation="right"
-              tick={{ fill: '#6b7280', fontSize: 10 }}
+              tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'monospace' }}
+              stroke="#334155"
+              tickLine={false}
               tickFormatter={(v) => `${v}%`}
             />
             <Tooltip
-              contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
+              contentStyle={{ 
+                backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                border: '1px solid rgba(51, 65, 85, 0.8)', 
+                borderRadius: '10px', 
+                fontSize: '12px',
+                color: '#e2e8f0'
+              }}
             />
             <Area
               yAxisId="mw"
               type="monotone"
               dataKey="mean_actual"
               name="Mean Actual (MW)"
-              stroke="#06b6d4"
-              fill="#06b6d4"
-              fillOpacity={0.1}
+              stroke="#38bdf8"
+              fill="url(#dailyActualGrad)"
               strokeWidth={1.5}
             />
             <Line
@@ -186,19 +268,19 @@ export default function AccuracyDashboard({ dateFrom, dateTo }: AccuracyDashboar
               type="monotone"
               dataKey="mean_forecast"
               name="Mean Forecast (MW)"
-              stroke="#f59e0b"
+              stroke="#10b981"
               strokeWidth={2}
-              strokeDasharray="5 3"
-              dot={{ fill: '#f59e0b', r: 2 }}
+              strokeDasharray="4 2"
+              dot={{ fill: '#10b981', r: 2 }}
             />
             <Line
               yAxisId="pct"
               type="monotone"
               dataKey="mape"
-              name="MAPE (%)"
-              stroke="#ef4444"
-              strokeWidth={2}
-              dot={{ fill: '#ef4444', r: 3 }}
+              name="Daily MAPE (%)"
+              stroke="#f59e0b"
+              strokeWidth={1.75}
+              dot={{ fill: '#f59e0b', r: 2 }}
             />
           </ComposedChart>
         </ResponsiveContainer>

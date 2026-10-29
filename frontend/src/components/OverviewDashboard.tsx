@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wind, TrendingUp, Zap, BarChart3 } from 'lucide-react';
+import { Wind, TrendingUp, Zap, BarChart3, Database } from 'lucide-react';
 import ForecastChart from './ForecastChart';
 import MetricCard from './MetricCard';
 import LoadingSpinner from './LoadingSpinner';
@@ -17,7 +17,7 @@ export default function OverviewDashboard({ dateFrom, dateTo }: OverviewDashboar
   const accuracy = useAccuracy(dateFrom, dateTo);
 
   if (comparison.isLoading || accuracy.isLoading) {
-    return <LoadingSpinner message="Fetching wind generation data from Elexon BMRS..." />;
+    return <LoadingSpinner message="Streaming January 2026 outturn & forecast series from Elexon BMRS..." />;
   }
 
   if (comparison.error) {
@@ -30,59 +30,66 @@ export default function OverviewDashboard({ dateFrom, dateTo }: OverviewDashboar
 
   return (
     <div className="space-y-6">
-      {/* Hero Metrics */}
+      {/* Executive KPI Deck */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard
-          title="Data Points"
+          title="Observations"
           value={formatNumber(comparison.data.data.length)}
-          subtitle="Half-hourly readings"
-          icon={<BarChart3 className="w-4 h-4" />}
-          trend="neutral"
+          subtitle="Half-hourly intervals"
+          icon={<Database className="w-4 h-4" />}
+          riskStatus="normal"
         />
         {metrics && (
           <>
             <MetricCard
-              title="Forecast MAE"
+              title="Mean Abs Error (MAE)"
               value={formatMW(metrics.mae)}
-              subtitle="Avg error magnitude"
+              subtitle="Average deviation"
               icon={<Wind className="w-4 h-4" />}
-              trend={metrics.mae < 500 ? 'good' : metrics.mae < 1000 ? 'warning' : 'bad'}
+              riskStatus={metrics.mae > 3500 ? 'caution' : 'optimal'}
             />
             <MetricCard
-              title="Correlation"
+              title="Directional Correlation"
               value={metrics.correlation.toFixed(3)}
-              subtitle="Forecast tracks actuals"
+              subtitle="Pearson r index"
               icon={<TrendingUp className="w-4 h-4" />}
-              trend={metrics.correlation > 0.95 ? 'good' : metrics.correlation > 0.85 ? 'warning' : 'bad'}
+              riskStatus={metrics.correlation > 0.90 ? 'optimal' : 'normal'}
             />
             <MetricCard
-              title="MAPE"
+              title="Relative Error (MAPE)"
               value={formatPercent(metrics.mape)}
-              subtitle="Relative forecast error"
+              subtitle="Mean % deviation"
               icon={<Zap className="w-4 h-4" />}
-              trend={metrics.mape < 10 ? 'good' : metrics.mape < 20 ? 'warning' : 'bad'}
+              riskStatus={metrics.mape > 25 ? 'caution' : 'optimal'}
             />
           </>
         )}
       </div>
 
-      {/* Main Chart */}
+      {/* Main High-Performance Cockpit Chart */}
       <ForecastChart
         data={comparison.data.data}
-        title="UK National Wind Generation — January 2026"
+        title="UK National Wind Outturn vs Day-Ahead Forecast · January 2026"
         showError={true}
         height={450}
       />
 
-      {/* Info Banner */}
-      <div className="bg-brand-950/30 border border-brand-800/30 rounded-xl p-4 flex items-start gap-3">
-        <Wind className="w-5 h-5 text-brand-400 mt-0.5 flex-shrink-0" />
-        <div className="text-sm text-gray-300">
-          <p className="font-medium text-brand-300 mb-1">About This Data</p>
-          <p className="text-xs text-gray-400 leading-relaxed">
-            Wind generation actuals from the FUELHH dataset and day-ahead forecasts from the WINDFOR dataset, 
-            sourced from Elexon BMRS. Forecasts shown are the latest available before day-ahead gate closure 
-            (~11:00 UTC D-1). All values represent UK national-level wind power in megawatts (MW).
+      {/* Wholesale Market Mechanics Information Panel */}
+      <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 flex items-start gap-3 backdrop-blur-sm shadow-panel">
+        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0 mt-0.5">
+          <Wind className="w-4 h-4" />
+        </div>
+        <div className="text-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-semibold text-slate-200">Wholesale Day-Ahead Market Mechanics</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
+              Elexon Insights
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Data streams connect directly to Elexon BMRS <code className="text-slate-300 font-mono">FUELHH/stream</code> (metered wind generation) 
+            and <code className="text-slate-300 font-mono">WINDFOR/stream</code> (National Grid ESO forecasted wind). 
+            All forecasts reflect the latest vintage published prior to Day-Ahead gate closure (11:00 UTC D-1), enabling empirical procurement hedging.
           </p>
         </div>
       </div>

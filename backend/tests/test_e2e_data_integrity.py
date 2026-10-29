@@ -185,3 +185,4 @@ class TestLiveElexonDataValidation:
         # Verify ISO timestamp boundaries
         assert str(first_pt.timestamp).startswith("2026-01-01 00:00:00")
         assert str(last_pt.timestamp).startswith("2026-01-02 23:30:00")
+
