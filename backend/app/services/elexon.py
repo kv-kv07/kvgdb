@@ -21,10 +21,18 @@ class TTLCache:
         self._cache: OrderedDict[str, tuple[float, any]] = OrderedDict()
         self._maxsize = maxsize
         self._ttl = ttl
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+        self._lock_loop = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        current_loop = asyncio.get_running_loop()
+        if self._lock is None or self._lock_loop != current_loop:
+            self._lock = asyncio.Lock()
+            self._lock_loop = current_loop
+        return self._lock
     
     async def get(self, key: str) -> Optional[any]:
-        async with self._lock:
+        async with self._get_lock():
             if key in self._cache:
                 timestamp, value = self._cache[key]
                 if time.time() - timestamp < self._ttl:
@@ -35,7 +43,7 @@ class TTLCache:
         return None
     
     async def set(self, key: str, value: any):
-        async with self._lock:
+        async with self._get_lock():
             if key in self._cache:
                 del self._cache[key]
             elif len(self._cache) >= self._maxsize:
@@ -43,7 +51,7 @@ class TTLCache:
             self._cache[key] = (time.time(), value)
     
     async def clear(self):
-        async with self._lock:
+        async with self._get_lock():
             self._cache.clear()
 
 
@@ -56,15 +64,18 @@ class ElexonClient:
     def __init__(self):
         self.base_url = settings.ELEXON_BASE_URL
         self._client: Optional[httpx.AsyncClient] = None
+        self._loop = None
     
     async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create the HTTP client."""
-        if self._client is None or self._client.is_closed:
+        """Get or create the HTTP client, handling event loop changes cleanly."""
+        current_loop = asyncio.get_running_loop()
+        if self._client is None or self._client.is_closed or self._loop != current_loop:
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
                 timeout=httpx.Timeout(45.0, connect=15.0),
                 headers={"Accept": "application/json"},
             )
+            self._loop = current_loop
         return self._client
     
     async def close(self):
