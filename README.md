@@ -18,9 +18,9 @@ Data is sourced exclusively from [Elexon BMRS](https://bmrs.elexon.co.uk/) — t
 
 ## 🖥️ Live Demo
 
-🔗 **Deployed App:** _[Add Vercel/Render URL here]_
+🔗 **Deployed App:** [kvgdb.vercel.app](https://kvgdb.vercel.app/)
 
-📹 **Video Demo:** _[Add YouTube URL here]_
+📹 **Video Demo:** https://youtu.be/Nnpyn73aqjs?si=iCOmbyd0NRdCM7m3
 
 ## 📁 Project Structure
 
@@ -227,4 +227,14 @@ npx tsc --noEmit
 | **MAPE** | Error as percentage of actual generation |
 | **MBE** | Systematic bias — positive = over-forecasting |
 | **Correlation** | How well forecast tracks actual patterns |
+
+## 🤖 AI Usage & Engineering Workflow
+
+AI assistance via **Antigravity IDE** (along with LLM copiloting) was utilized transparently across the engineering lifecycle:
+- **Boilerplate & Rapid Scaffolding**: Accelerated the foundational setup for FastAPI routing, schema definitions, and React dashboard components.
+- **Test Suite Acceleration**: Assisted in generating comprehensive test cases and edge fixtures to rigorously validate mathematical computations (MAE, RMSE, directional correlation).
+- **UI Styling & Theming**: Accelerated Tailwind CSS adjustments to build the hybrid dark-cockpit design aligned with REint AI brand aesthetics.
+
+*Note: All core business and domain rules—specifically the strict Elexon BMRS D-1 11:00 UTC gate-closure filtering, zero-leakage temporal boundaries, and settlement period alignment—were individually verified, architected, and validated to ensure strict data integrity.*
+
 
